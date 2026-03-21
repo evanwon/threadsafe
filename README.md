@@ -17,15 +17,37 @@ npx playwright install chromium
 npm start
 ```
 
+### Output Directory
+
+By default, posts are saved to `./output/`. To write directly to your Obsidian vault (or any other folder):
+
+```bash
+# One-time override
+npm start -- --output ~/ObsidianVault/Threads
+
+# Save as persistent default (writes config.json)
+npm start -- --output ~/ObsidianVault/Threads --save-config
+
+# After saving, just run without flags
+npm start
+```
+
+The `-o` short flag also works: `npm start -- -o ~/ObsidianVault/Threads`
+
+Priority: `--output` flag > `config.json` > `./output`
+
+### Login
+
 **First run**: A Chromium browser opens to `threads.com/login`. Log in manually. Once logged in, the session is saved to `session.json` for future runs.
 
 **Subsequent runs**: The saved session is reused automatically. If it expires, you'll be prompted to log in again.
 
-The tool will:
+### What it does
+
 1. Navigate to your saved posts page
 2. Scroll through all saved posts, intercepting API responses
 3. Download images (videos are linked but not downloaded)
-4. Generate one markdown file per post in `output/posts/`
+4. Generate one markdown file per post in your output directory
 5. Save state for incremental backups
 
 ## Incremental Backups
@@ -57,7 +79,7 @@ Post text content here.
 [View on Threads](https://www.threads.net/post/DAYjwI_pV7u)
 ```
 
-Images are saved to `output/assets/` and referenced with relative paths.
+Images are saved to `<outputDir>/assets/` and referenced with relative paths.
 
 **Filename format**: `@username-first-few-words-YYYY-MM-DD.md`
 
@@ -66,6 +88,7 @@ Images are saved to `output/assets/` and referenced with relative paths.
 ```
 src/
   index.ts        CLI entry point
+  config.ts       Load/save config.json, parse CLI args
   auth.ts         Session management (login, save/load Playwright state)
   scraper.ts      Scroll saved page, intercept GraphQL responses
   parser.ts       Parse Threads JSON into structured PostData
@@ -79,9 +102,10 @@ src/
 
 | File | Purpose |
 |------|---------|
+| `config.json` | Persistent settings (output directory) |
 | `session.json` | Playwright browser session cookies |
 | `state.json` | Incremental backup state (backed-up post IDs) |
-| `output/` | Generated markdown files and downloaded images |
+| `output/` | Default output (markdown files and downloaded images) |
 
 ## Limitations
 

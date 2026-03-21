@@ -14,12 +14,15 @@ TypeScript CLI tool that backs up saved Threads posts as Obsidian-compatible mar
 ## Key Commands
 
 - `npm start` — Run the backup tool (`tsx src/index.ts`)
+- `npm start -- --output /path/to/dir` — Override output directory
+- `npm start -- --output /path/to/dir --save-config` — Save output dir to `config.json`
 - `npx tsc --noEmit` — Type check without emitting
 
 ## Architecture
 
-The pipeline flows: **auth -> scrape -> parse -> download -> markdown -> state**
+The pipeline flows: **config -> auth -> scrape -> parse -> download -> markdown -> state**
 
+- `config.ts` — Loads persistent settings from `config.json`, merges with CLI args (`--output`, `--save-config`). Priority: CLI flag > config.json > default `./output`.
 - `auth.ts` — Manages Playwright session persistence via `session.json`. First run opens headed browser for manual login; subsequent runs reuse saved cookies.
 - `scraper.ts` — Navigates to `/saved`, listens for `response` events on `/graphql/query` endpoints, and scrolls to `document.body.scrollHeight` in a loop. Initial posts come from `<script data-sjs>` tags; subsequent pages come from intercepted network responses. Stops after 8 consecutive empty scrolls or when a known post ID is encountered.
 - `parser.ts` — Recursively searches nested JSON for objects with `post.pk` or `thread_items` keys. Extracts post ID, author, text, timestamp, media URLs, and engagement metrics.
@@ -36,6 +39,7 @@ The pipeline flows: **auth -> scrape -> parse -> download -> markdown -> state**
 
 ## Sensitive Files (gitignored)
 
+- `config.json` — Persistent settings (output directory)
 - `session.json` — Browser cookies, never commit
 - `state.json` — Backup state
-- `output/` — User's backed-up content
+- `output/` — Default output (user's backed-up content)

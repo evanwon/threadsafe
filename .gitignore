@@ -1,5 +1,6 @@
 node_modules/
 dist/
 output/
+config.json
 session.json
 state.json

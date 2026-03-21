@@ -6,11 +6,14 @@ import { parseThreadsData } from "./parser.js";
 import { downloadImages } from "./downloader.js";
 import { generateMarkdownFiles } from "./markdown.js";
 import { loadState, saveState, addBackedUpPosts } from "./state.js";
-
-const OUTPUT_DIR = resolve("output");
+import { resolveConfig } from "./config.js";
 
 async function main() {
   console.log("Threads Saved Posts Backer-Upper\n");
+
+  const config = await resolveConfig();
+  const OUTPUT_DIR = config.outputDir;
+  console.log(`Output directory: ${OUTPUT_DIR}`);
 
   // Ensure output directories exist
   await mkdir(resolve(OUTPUT_DIR, "posts"), { recursive: true });
@@ -49,7 +52,7 @@ async function main() {
 
     // Generate markdown files
     const written = await generateMarkdownFiles(postsWithImages, OUTPUT_DIR);
-    console.log(`Wrote ${written} markdown files to output/posts/`);
+    console.log(`Wrote ${written} markdown files to ${OUTPUT_DIR}/posts/`);
 
     // Update state
     const newPostIds = posts.map((p) => p.id);

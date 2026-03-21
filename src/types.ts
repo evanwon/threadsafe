@@ -21,3 +21,7 @@ export interface BackupState {
   lastRunAt: string;
   backedUpPostIds: string[];
 }
+
+export interface Config {
+  outputDir: string;
+}
