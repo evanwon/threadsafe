@@ -4,6 +4,10 @@ Back up your saved posts from [Threads](https://threads.com) as Obsidian-compati
 
 The official Threads API does not expose saved/bookmarked posts. This tool uses Playwright browser automation to scroll through your saved posts page, intercept the GraphQL responses, and generate local markdown files.
 
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+)
+
 ## Setup
 
 ```bash
@@ -81,7 +85,7 @@ Post text content here.
 
 Images are saved to `<outputDir>/assets/` and referenced with relative paths.
 
-**Filename format**: `@username-first-few-words-YYYY-MM-DD.md`
+**Filename format**: `YYYY-MM-DD-username-first-few-words.md`
 
 ## Project Structure
 
