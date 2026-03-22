@@ -20,7 +20,7 @@ TypeScript CLI tool that backs up saved Threads posts as Obsidian-compatible mar
 
 ## Architecture
 
-The pipeline flows: **config -> auth -> scrape -> parse -> download -> markdown -> state**
+The pipeline flows: **config -> auth -> scrape -> parse -> download -> markdown -> state -> gallery**
 
 - `config.ts` — Loads persistent settings from `config.json`, merges with CLI args (`--output`, `--save-config`). Priority: CLI flag > config.json > default `./output`.
 - `auth.ts` — Manages Playwright session persistence via `session.json`. First run opens headed browser for manual login; subsequent runs reuse saved cookies.
@@ -29,6 +29,7 @@ The pipeline flows: **config -> auth -> scrape -> parse -> download -> markdown 
 - `downloader.ts` — Downloads images with concurrency limit of 3. Skips videos (preserves URL for linking). Skips already-downloaded files.
 - `markdown.ts` — Generates `.md` files with YAML frontmatter. Filenames: `@author-slug-YYYY-MM-DD.md`. Handles collisions with counter suffix.
 - `state.ts` — Tracks backed-up post IDs in `state.json` for incremental backups.
+- `gallery.ts` — Reads all markdown files, parses frontmatter, scans assets directory for images, and generates a self-contained `index.html` gallery. Runs after every backup (even when no new posts). Uses incremental rendering (50-post batches via IntersectionObserver) for performance with 1000+ posts.
 
 ## Important Patterns
 

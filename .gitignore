@@ -5,3 +5,4 @@ config.json
 session.json
 state.json
 .claude/
+.superpowers/

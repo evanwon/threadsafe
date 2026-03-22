@@ -7,6 +7,7 @@ import { downloadImages } from "./downloader.js";
 import { generateMarkdownFiles } from "./markdown.js";
 import { loadState, saveState, addBackedUpPosts } from "./state.js";
 import { resolveConfig } from "./config.js";
+import { generateGallery } from "./gallery.js";
 
 async function main() {
   console.log("Threads Saved Posts Backer-Upper\n");
@@ -35,32 +36,33 @@ async function main() {
 
     if (rawItems.length === 0) {
       console.log("No new posts found.");
-      return;
+    } else {
+      // Parse into structured data
+      const posts = parseThreadsData(rawItems);
+      console.log(`Parsed ${posts.length} posts.`);
+
+      if (posts.length === 0) {
+        console.log("No posts could be parsed from scraped data.");
+      } else {
+        // Download images
+        const postsWithImages = await downloadImages(posts, OUTPUT_DIR);
+
+        // Generate markdown files
+        const written = await generateMarkdownFiles(
+          postsWithImages,
+          OUTPUT_DIR
+        );
+        console.log(`Wrote ${written} markdown files to ${OUTPUT_DIR}/posts/`);
+
+        // Update state
+        const newPostIds = posts.map((p) => p.id);
+        const updatedState = addBackedUpPosts(state, newPostIds);
+        await saveState(updatedState);
+        console.log(
+          `State updated: ${updatedState.backedUpPostIds.length} total backed-up posts.`
+        );
+      }
     }
-
-    // Parse into structured data
-    const posts = parseThreadsData(rawItems);
-    console.log(`Parsed ${posts.length} posts.`);
-
-    if (posts.length === 0) {
-      console.log("No posts could be parsed from scraped data.");
-      return;
-    }
-
-    // Download images
-    const postsWithImages = await downloadImages(posts, OUTPUT_DIR);
-
-    // Generate markdown files
-    const written = await generateMarkdownFiles(postsWithImages, OUTPUT_DIR);
-    console.log(`Wrote ${written} markdown files to ${OUTPUT_DIR}/posts/`);
-
-    // Update state
-    const newPostIds = posts.map((p) => p.id);
-    const updatedState = addBackedUpPosts(state, newPostIds);
-    await saveState(updatedState);
-    console.log(
-      `State updated: ${updatedState.backedUpPostIds.length} total backed-up posts.`
-    );
   } catch (err) {
     console.error("Error during backup:", err);
 
@@ -75,6 +77,9 @@ async function main() {
   } finally {
     await closeBrowser();
   }
+
+  // Generate gallery (always runs, even if no new posts or on error)
+  await generateGallery(OUTPUT_DIR);
 
   console.log("\nDone!");
 }

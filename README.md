@@ -53,6 +53,19 @@ Priority: `--output` flag > `config.json` > `./output`
 3. Download images (videos are linked but not downloaded)
 4. Generate one markdown file per post in your output directory
 5. Save state for incremental backups
+6. Generate a browsable HTML gallery (`index.html`)
+
+## Gallery Viewer
+
+Each backup run also generates `index.html` in your output directory — a self-contained gallery for browsing all your saved posts in the browser. No server needed, just open the file.
+
+- **Feed view** (default): scrollable timeline with full post text and images
+- **Grid view**: Pinterest-style card grid for visual scanning
+- **Search**: filter posts by text content
+- **Author filter**: dropdown listing all authors with post counts
+- **Sort**: newest, most liked, oldest
+
+The gallery is regenerated automatically after every backup, including runs where no new posts are found.
 
 ## Incremental Backups
 
@@ -98,6 +111,7 @@ src/
   parser.ts       Parse Threads JSON into structured PostData
   downloader.ts   Download images with concurrency limit
   markdown.ts     Generate .md files with YAML frontmatter
+  gallery.ts      Generate self-contained HTML gallery viewer
   state.ts        Read/write state.json for incremental tracking
   types.ts        TypeScript interfaces
 ```

@@ -25,3 +25,17 @@ export interface BackupState {
 export interface Config {
   outputDir: string;
 }
+
+export interface GalleryPost {
+  id: string;
+  author: string;
+  verified: boolean;
+  date: string;
+  url: string;
+  likes: number;
+  replies: number;
+  reposts: number;
+  text: string;
+  images: string[];
+  videoUrls: string[];
+}
