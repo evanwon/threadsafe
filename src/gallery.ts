@@ -1,13 +1,13 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { GalleryPost } from "./types.js";
+import type { GalleryPost, GalleryMediaItem } from "./types.js";
 
 /**
  * Parse YAML frontmatter from a markdown file.
  * Returns null if frontmatter is malformed.
  */
-function parseFrontmatter(
+export function parseFrontmatter(
   content: string
 ): { meta: Record<string, string>; body: string } | null {
   const trimmed = content.trimStart();
@@ -46,33 +46,61 @@ function parseFrontmatter(
 }
 
 /**
- * Extract post text and video URLs from the markdown body.
+ * Extract post text and media items from the markdown body.
+ * Detects image-before-video adjacency to pair thumbnails with videos.
  */
-function parseBody(body: string): { text: string; videoUrls: string[] } {
-  // Extract video URLs from [Video](url) pattern
-  const videoRegex = /\[Video\]\(([^)]+)\)/g;
-  const videoUrls: string[] = [];
-  let match;
-  while ((match = videoRegex.exec(body)) !== null) {
-    videoUrls.push(match[1]);
-  }
-
-  // Extract text: everything before the first media line or --- footer
+export function parseBody(body: string): { text: string; media: GalleryMediaItem[] } {
   const lines = body.split("\n");
   const textLines: string[] = [];
+  const media: GalleryMediaItem[] = [];
+  let pendingImage: string | null = null;
+  let inText = true;
+
+  const imageRegex = /^!\[.*?\]\(([^)]+)\)$/;
+  const videoRegex = /^\[Video\]\(([^)]+)\)$/;
+
   for (const line of lines) {
-    // Stop at image, video, or footer separator
-    if (
-      line.startsWith("![") ||
-      line.startsWith("[Video]") ||
-      (line === "---" && textLines.length > 0)
-    ) {
+    const trimmed = line.trim();
+
+    // Stop at footer separator
+    if (trimmed === "---" && (textLines.length > 0 || media.length > 0)) {
+      if (pendingImage) {
+        media.push({ type: "image", src: pendingImage });
+        pendingImage = null;
+      }
       break;
     }
-    textLines.push(line);
+
+    const imgMatch = trimmed.match(imageRegex);
+    const vidMatch = trimmed.match(videoRegex);
+
+    if (imgMatch) {
+      inText = false;
+      // Flush any previously pending image as a standalone image
+      if (pendingImage) {
+        media.push({ type: "image", src: pendingImage });
+      }
+      pendingImage = imgMatch[1];
+    } else if (vidMatch) {
+      inText = false;
+      if (pendingImage) {
+        // Image immediately before video = thumbnail-video pair
+        media.push({ type: "video", src: vidMatch[1], poster: pendingImage });
+        pendingImage = null;
+      } else {
+        media.push({ type: "video", src: vidMatch[1] });
+      }
+    } else if (inText) {
+      textLines.push(line);
+    }
   }
 
-  return { text: textLines.join("\n").trim(), videoUrls };
+  // Flush any remaining pending image
+  if (pendingImage) {
+    media.push({ type: "image", src: pendingImage });
+  }
+
+  return { text: textLines.join("\n").trim(), media };
 }
 
 /**
@@ -128,8 +156,14 @@ async function readAllPosts(
     }
 
     const { meta, body } = parsed;
-    const { text, videoUrls } = parseBody(body);
-    const images = assetMap.get(meta.id) || [];
+    const { text, media: parsedMedia } = parseBody(body);
+
+    // Use parsed media from body; fall back to asset map if body had no images
+    let media = parsedMedia;
+    if (media.length === 0) {
+      const fallbackImages = assetMap.get(meta.id) || [];
+      media = fallbackImages.map((src) => ({ type: "image" as const, src }));
+    }
 
     posts.push({
       id: meta.id || "",
@@ -141,8 +175,7 @@ async function readAllPosts(
       replies: parseInt(meta.replies, 10) || 0,
       reposts: parseInt(meta.reposts, 10) || 0,
       text,
-      images,
-      videoUrls,
+      media,
     });
   }
 
@@ -156,7 +189,7 @@ async function readAllPosts(
 /**
  * Generate the self-contained HTML gallery.
  */
-function generateHtml(posts: GalleryPost[]): string {
+export function generateHtml(posts: GalleryPost[]): string {
   // Escape </ sequences to prevent </script> from breaking out of the script block
   const postsJson = JSON.stringify(posts).replace(/<\//g, "<\\/");
 
@@ -228,13 +261,14 @@ select{
 .date{color:var(--text2);font-size:14px;margin-left:auto}
 .post-text{font-size:15px;line-height:1.5;white-space:pre-wrap;margin-bottom:12px;word-break:break-word}
 .post-img{max-width:100%;border-radius:8px;margin-bottom:8px;display:block}
-.video-placeholder{
-  background:var(--surface);border-radius:8px;padding:40px;text-align:center;
-  cursor:pointer;margin-bottom:8px;border:1px solid var(--border);
+.video-container{position:relative;cursor:pointer;margin-bottom:8px}
+.video-container .post-img{margin-bottom:0}
+.play-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.3);border-radius:8px;transition:background .15s;
 }
-.video-placeholder:hover{background:var(--hover)}
-.video-placeholder svg{opacity:.7}
-.video-placeholder p{color:var(--text2);font-size:13px;margin-top:8px}
+.video-container:hover .play-overlay{background:rgba(0,0,0,.15)}
+.post-video{max-width:100%;border-radius:8px;margin-bottom:8px;display:block;background:#000}
 .metrics{display:flex;gap:16px;font-size:14px;color:var(--text2);margin-top:8px}
 .actions{display:flex;gap:16px;margin-top:8px;font-size:13px}
 .actions a,.actions button{
@@ -439,45 +473,64 @@ function renderBatch(){
   }
 }
 
+function renderMediaHtml(p){
+  var html="";
+  for(var i=0;i<p.media.length;i++){
+    var m=p.media[i];
+    if(m.type==="image"){
+      html+='<img class="post-img" src="'+esc(m.src)+'" loading="lazy" alt="">';
+    }else if(m.poster){
+      html+='<div class="video-container" data-video="'+esc(m.src)+'" onclick="playVideo(event,this)">'
+        +'<img class="post-img" src="'+esc(m.poster)+'" loading="lazy" alt="">'
+        +'<div class="play-overlay">'+playSvg+'</div></div>';
+    }else{
+      html+='<video class="post-video" controls playsinline preload="metadata">'
+        +'<source src="'+esc(m.src)+'" type="video/mp4"></video>';
+    }
+  }
+  return html;
+}
+
 function renderPost(p){
   var author=esc(stripAt(p.author));
   var initial=stripAt(p.author).charAt(0).toUpperCase();
   var color=avatarColor(p.author);
   var vBadge=p.verified?verifiedSvg:"";
   var dateStr=fmtDate(p.date);
-  var mediaCount=p.images.length+p.videoUrls.length;
+  var hasVideo=false;
+  var firstCoverSrc="";
+  for(var i=0;i<p.media.length;i++){
+    var m=p.media[i];
+    if(m.type==="video")hasVideo=true;
+    if(!firstCoverSrc){
+      if(m.type==="image")firstCoverSrc=m.src;
+      else if(m.poster)firstCoverSrc=m.poster;
+    }
+  }
 
   var gridCover="";
   var badge="";
-  if(p.images.length>0){
-    gridCover='<img class="grid-cover" src="'+esc(p.images[0])+'" loading="lazy" alt="">';
-  }else if(p.videoUrls.length>0){
+  if(firstCoverSrc){
+    gridCover='<img class="grid-cover" src="'+esc(firstCoverSrc)+'" loading="lazy" alt="">';
+  }else if(hasVideo){
     gridCover='<div class="grid-text-cover" style="background:var(--surface)">'+playSvg+'</div>';
   }else{
     gridCover='<div class="grid-text-cover">'+esc(p.text.slice(0,200))+'</div>';
   }
-  if(mediaCount>1)badge='<span class="badge">1/'+mediaCount+'</span>';
-  else if(p.videoUrls.length>0&&p.images.length===0)badge='<span class="badge">&#9654; video</span>';
-
-  var media="";
-  for(var i=0;i<p.images.length;i++){
-    media+='<img class="post-img" src="'+esc(p.images[i])+'" loading="lazy" alt="">';
-  }
-  for(var j=0;j<p.videoUrls.length;j++){
-    media+='<div class="video-placeholder" onclick="window.open(this.dataset.url,&#39;_blank&#39;)" data-url="'+esc(p.videoUrls[j])+'">'+playSvg+'<p>Open video</p></div>';
-  }
+  if(p.media.length>1)badge='<span class="badge">1/'+p.media.length+'</span>';
+  else if(hasVideo)badge='<span class="badge">&#9654; video</span>';
 
   return '<div class="post" data-id="'+esc(p.id)+'" onclick="handlePostClick(event,this)">'
     +gridCover+badge
     +'<div class="grid-overlay"><span class="grid-author">'+author+'</span> &middot; '+esc(dateStr)
-    +(mediaCount>1?' &middot; &#10084; '+fmtNum(p.likes):'')+'</div>'
+    +(p.media.length>1?' &middot; &#10084; '+fmtNum(p.likes):'')+'</div>'
     +'<div class="feed-content">'
     +'<div class="author-row">'
     +'<div class="avatar" style="background:'+color+'">'+initial+'</div>'
     +'<div><span class="author-name">'+author+'</span>'+vBadge+'</div>'
     +'<span class="date">'+esc(dateStr)+'</span></div>'
     +(p.text?'<div class="post-text">'+esc(p.text)+'</div>':'')
-    +media
+    +renderMediaHtml(p)
     +'<div class="metrics"><span>&#10084; '+fmtNum(p.likes)+'</span><span>&#128172; '+fmtNum(p.replies)+'</span><span>&#128260; '+fmtNum(p.reposts)+'</span></div>'
     +'<div class="actions">'
     +(p.url?'<a href="'+esc(p.url)+'" target="_blank" rel="noopener">View on Threads &#8599;</a>':'')
@@ -488,7 +541,7 @@ function renderPost(p){
 
 function handlePostClick(e,el){
   if(currentView!=="grid")return;
-  if(e.target.closest(".video-placeholder"))return;
+  if(e.target.closest(".video-container"))return;
   var id=el.dataset.id;
   var post=null;
   for(var i=0;i<POSTS.length;i++){if(POSTS[i].id===id){post=POSTS[i];break}}
@@ -505,14 +558,6 @@ function openModal(p){
   var vBadge=p.verified?verifiedSvg:"";
   var dateStr=fmtDate(p.date);
 
-  var media="";
-  for(var i=0;i<p.images.length;i++){
-    media+='<img class="post-img" src="'+esc(p.images[i])+'" loading="lazy" alt="">';
-  }
-  for(var j=0;j<p.videoUrls.length;j++){
-    media+='<div class="video-placeholder" onclick="window.open(this.dataset.url,&#39;_blank&#39;)" data-url="'+esc(p.videoUrls[j])+'">'+playSvg+'<p>Open video</p></div>';
-  }
-
   var html='<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">'
     +'<button class="modal-close" onclick="closeModal()">&times;</button>'
     +'<div class="modal"><div class="post">'
@@ -522,7 +567,7 @@ function openModal(p){
     +'<span class="date">'+esc(dateStr)+'</span></div>'
     +'<div style="padding:12px 16px 16px">'
     +(p.text?'<div class="post-text">'+esc(p.text)+'</div>':'')
-    +media
+    +renderMediaHtml(p)
     +'<div class="metrics"><span>&#10084; '+fmtNum(p.likes)+'</span><span>&#128172; '+fmtNum(p.replies)+'</span><span>&#128260; '+fmtNum(p.reposts)+'</span></div>'
     +'<div class="actions">'
     +(p.url?'<a href="'+esc(p.url)+'" target="_blank" rel="noopener">View on Threads &#8599;</a>':'')
@@ -531,6 +576,27 @@ function openModal(p){
 
   document.body.insertAdjacentHTML("beforeend",html);
   document.body.style.overflow="hidden";
+}
+
+function playVideo(e,container){
+  e.stopPropagation();
+  var url=container.dataset.video;
+  var video=document.createElement("video");
+  video.className="post-video";
+  video.controls=true;
+  video.playsInline=true;
+  video.autoplay=true;
+  var source=document.createElement("source");
+  source.src=url;
+  source.type="video/mp4";
+  video.appendChild(source);
+  container.replaceWith(video);
+  video.addEventListener("error",function(){
+    var msg=document.createElement("div");
+    msg.style.cssText="padding:20px;text-align:center;color:var(--text2);font-size:13px";
+    msg.textContent="Video unavailable";
+    video.replaceWith(msg);
+  });
 }
 
 function closeModal(){

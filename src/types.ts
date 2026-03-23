@@ -26,6 +26,12 @@ export interface Config {
   outputDir: string;
 }
 
+export interface GalleryMediaItem {
+  type: "image" | "video";
+  src: string;
+  poster?: string;
+}
+
 export interface GalleryPost {
   id: string;
   author: string;
@@ -36,6 +42,5 @@ export interface GalleryPost {
   replies: number;
   reposts: number;
   text: string;
-  images: string[];
-  videoUrls: string[];
+  media: GalleryMediaItem[];
 }
