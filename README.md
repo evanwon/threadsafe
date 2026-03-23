@@ -1,4 +1,4 @@
-# Threads Saved Posts Backer-Upper
+# Threadsafe
 
 Back up your saved posts from [Threads](https://threads.com) as Obsidian-compatible markdown files with downloaded images.
 

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-TypeScript CLI tool that backs up saved Threads posts as Obsidian-compatible markdown. Uses Playwright to automate a Chromium browser, scrolling through `threads.com/saved` and intercepting GraphQL API responses to extract post data.
+Threadsafe is a TypeScript CLI tool that backs up saved Threads posts as Obsidian-compatible markdown. Uses Playwright to automate a Chromium browser, scrolling through `threads.com/saved` and intercepting GraphQL API responses to extract post data.
 
 ## Tech Stack
 

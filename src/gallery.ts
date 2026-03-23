@@ -165,7 +165,7 @@ function generateHtml(posts: GalleryPost[]): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Threads Saved Posts</title>
+<title>Threadsafe</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -313,7 +313,7 @@ select{
 
 <div class="header">
   <div class="header-inner">
-    <div class="logo">Saved <span id="postCount"></span></div>
+    <div class="logo">Threadsafe <span id="postCount"></span></div>
     <input class="search" id="search" type="text" placeholder="Search posts...">
     <select id="authorFilter"></select>
     <select id="sortMode">

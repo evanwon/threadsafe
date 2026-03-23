@@ -10,7 +10,7 @@ import { resolveConfig } from "./config.js";
 import { generateGallery } from "./gallery.js";
 
 async function main() {
-  console.log("Threads Saved Posts Backer-Upper\n");
+  console.log("Threadsafe\n");
 
   const config = await resolveConfig();
   const OUTPUT_DIR = config.outputDir;

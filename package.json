@@ -1,5 +1,5 @@
 {
-  "name": "threads-saved-backer-upper",
+  "name": "threadsafe",
   "version": "1.0.0",
   "description": "Back up saved Threads posts as Obsidian-compatible markdown",
   "type": "module",
