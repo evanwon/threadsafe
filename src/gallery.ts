@@ -106,9 +106,10 @@ export function parseBody(body: string): { text: string; media: GalleryMediaItem
 /**
  * Scan the assets directory and group image files by post ID.
  */
-async function scanAssets(assetsDir: string): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>();
-  if (!existsSync(assetsDir)) return map;
+async function scanAssets(assetsDir: string): Promise<{ postImages: Map<string, string[]>; profilePics: Map<string, string> }> {
+  const postImages = new Map<string, string[]>();
+  const emptyResult = { postImages, profilePics: new Map<string, string>() };
+  if (!existsSync(assetsDir)) return emptyResult;
 
   const files = await readdir(assetsDir);
   const imageRegex = /^(\d+)-(\d+)\.(jpe?g|png|webp|gif)$/i;
@@ -118,18 +119,38 @@ async function scanAssets(assetsDir: string): Promise<Map<string, string[]>> {
     if (!m) continue;
 
     const postId = m[1];
-    const existing = map.get(postId) || [];
+    const existing = postImages.get(postId) || [];
     existing.push(`assets/${file}`);
-    map.set(postId, existing);
+    postImages.set(postId, existing);
   }
 
   // Sort each array by the numeric index
-  for (const [, paths] of map) {
+  for (const [, paths] of postImages) {
     paths.sort((a, b) => {
       const idxA = parseInt(a.match(/-(\d+)\.[^.]+$/)?.[1] || "0", 10);
       const idxB = parseInt(b.match(/-(\d+)\.[^.]+$/)?.[1] || "0", 10);
       return idxA - idxB;
     });
+  }
+
+  const profilePics = scanProfilePics(files);
+
+  return { postImages, profilePics };
+}
+
+/**
+ * Scan the assets directory for profile picture files.
+ * Returns a map of @username -> relative path.
+ */
+function scanProfilePics(files: string[]): Map<string, string> {
+  const map = new Map<string, string>();
+  const profileRegex = /^(.+)-profile\.(jpe?g|png|webp|gif)$/i;
+
+  for (const file of files) {
+    const m = profileRegex.exec(file);
+    if (!m) continue;
+    const username = m[1];
+    map.set(`@${username}`, `assets/${file}`);
   }
 
   return map;
@@ -140,7 +161,8 @@ async function scanAssets(assetsDir: string): Promise<Map<string, string[]>> {
  */
 async function readAllPosts(
   postsDir: string,
-  assetMap: Map<string, string[]>
+  assetMap: Map<string, string[]>,
+  profilePicMap: Map<string, string>
 ): Promise<GalleryPost[]> {
   const files = await readdir(postsDir);
   const mdFiles = files.filter((f) => f.endsWith(".md"));
@@ -165,10 +187,13 @@ async function readAllPosts(
       media = fallbackImages.map((src) => ({ type: "image" as const, src }));
     }
 
+    const author = meta.author || "@unknown";
+
     posts.push({
       id: meta.id || "",
-      author: meta.author || "@unknown",
+      author,
       verified: meta.verified === "true",
+      avatar: profilePicMap.get(author),
       date: meta.date || "",
       url: meta.url || "",
       likes: parseInt(meta.likes, 10) || 0,
@@ -257,6 +282,7 @@ select{
   display:flex;align-items:center;justify-content:center;
   font-weight:600;font-size:16px;flex-shrink:0;color:#fff;
 }
+img.avatar{object-fit:cover}
 .author-name{font-weight:600;font-size:15px}
 .verified{display:inline-flex;margin-left:4px;vertical-align:middle}
 .date{color:var(--text2);font-size:14px;margin-left:auto}
@@ -492,10 +518,23 @@ function renderMediaHtml(p){
   return html;
 }
 
+function avatarFallbackHtml(author){
+  var initial=stripAt(author).charAt(0).toUpperCase();
+  var color=avatarColor(author);
+  return '<div class="avatar" style="background:'+color+'">'+initial+'</div>';
+}
+
+function handleAvatarError(el){
+  el.outerHTML=avatarFallbackHtml(el.dataset.author);
+}
+
+function renderAvatarHtml(p){
+  if(p.avatar)return '<img class="avatar" src="'+esc(p.avatar)+'" loading="lazy" alt="" data-author="'+esc(p.author)+'" onerror="handleAvatarError(this)">';
+  return avatarFallbackHtml(p.author);
+}
+
 function renderPost(p){
   var author=esc(stripAt(p.author));
-  var initial=stripAt(p.author).charAt(0).toUpperCase();
-  var color=avatarColor(p.author);
   var vBadge=p.verified?verifiedSvg:"";
   var dateStr=fmtDate(p.date);
   var hasVideo=false;
@@ -527,7 +566,7 @@ function renderPost(p){
     +(p.media.length>1?' &middot; &#10084; '+fmtNum(p.likes):'')+'</div>'
     +'<div class="feed-content">'
     +'<div class="author-row">'
-    +'<div class="avatar" style="background:'+color+'">'+initial+'</div>'
+    +renderAvatarHtml(p)
     +'<div><span class="author-name">'+author+'</span>'+vBadge+'</div>'
     +'<span class="date">'+esc(dateStr)+'</span></div>'
     +(p.text?'<div class="post-text">'+esc(p.text)+'</div>':'')
@@ -554,8 +593,6 @@ function openModal(p){
   if(existing)existing.remove();
 
   var author=esc(stripAt(p.author));
-  var initial=stripAt(p.author).charAt(0).toUpperCase();
-  var color=avatarColor(p.author);
   var vBadge=p.verified?verifiedSvg:"";
   var dateStr=fmtDate(p.date);
 
@@ -563,7 +600,7 @@ function openModal(p){
     +'<button class="modal-close" onclick="closeModal()">&times;</button>'
     +'<div class="modal"><div class="post">'
     +'<div class="author-row" style="padding:16px 16px 0">'
-    +'<div class="avatar" style="background:'+color+'">'+initial+'</div>'
+    +renderAvatarHtml(p)
     +'<div><span class="author-name">'+author+'</span>'+vBadge+'</div>'
     +'<span class="date">'+esc(dateStr)+'</span></div>'
     +'<div style="padding:12px 16px 16px">'
@@ -642,8 +679,8 @@ export async function generateGallery(outputDir: string): Promise<void> {
     return;
   }
 
-  const assetMap = await scanAssets(assetsDir);
-  const posts = await readAllPosts(postsDir, assetMap);
+  const { postImages, profilePics } = await scanAssets(assetsDir);
+  const posts = await readAllPosts(postsDir, postImages, profilePics);
 
   if (posts.length === 0) {
     console.log("No posts found, skipping gallery generation.");

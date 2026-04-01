@@ -95,3 +95,55 @@ export async function downloadImages(
 
   return posts;
 }
+
+/**
+ * Download profile pictures for all unique authors.
+ * Always overwrites to keep avatars current across runs.
+ */
+export async function downloadProfilePics(
+  posts: PostData[],
+  outputDir: string
+): Promise<void> {
+  const assetsDir = resolve(outputDir, "assets");
+
+  // Deduplicate by author — keep first non-empty profilePicUrl per author
+  const authorPics = new Map<string, string>();
+  for (const post of posts) {
+    if (post.profilePicUrl && !authorPics.has(post.author)) {
+      authorPics.set(post.author, post.profilePicUrl);
+    }
+  }
+
+  if (authorPics.size === 0) {
+    return;
+  }
+
+  console.log(`Downloading ${authorPics.size} profile pictures...`);
+  let completed = 0;
+
+  const pending = new Set<Promise<void>>();
+
+  for (const [author, url] of authorPics) {
+    const task = (async () => {
+      const username = author.replace(/^@/, "");
+      const ext = url.match(/\.(jpe?g|png|webp|gif)/i)?.[1] ?? "jpg";
+      const dest = join(assetsDir, `${username}-profile.${ext}`);
+      try {
+        await downloadFile(url, dest);
+        completed++;
+      } catch (err) {
+        console.error(`Failed to download profile pic for ${author}: ${err}`);
+      }
+    })();
+
+    pending.add(task);
+    task.finally(() => pending.delete(task));
+
+    if (pending.size >= CONCURRENCY_LIMIT) {
+      await Promise.race(pending);
+    }
+  }
+
+  await Promise.all(pending);
+  console.log(`Downloaded ${completed} profile pictures.`);
+}

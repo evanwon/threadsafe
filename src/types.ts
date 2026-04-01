@@ -2,6 +2,7 @@ export interface PostData {
   id: string;
   author: string;
   authorVerified: boolean;
+  profilePicUrl: string;
   text: string;
   timestamp: string;
   url: string;
@@ -36,6 +37,7 @@ export interface GalleryPost {
   id: string;
   author: string;
   verified: boolean;
+  avatar?: string;
   date: string;
   url: string;
   likes: number;

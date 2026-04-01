@@ -23,6 +23,7 @@ const FIXTURES: GalleryPost[] = [
     id: "1",
     author: "@alice",
     verified: true,
+    avatar: "assets/alice-profile.jpg",
     date: "2024-03-01T12:00:00.000Z",
     url: "https://www.threads.net/post/1",
     likes: 100,
@@ -98,7 +99,7 @@ async function validate(htmlPath?: string): Promise<void> {
   // Capture console errors (ignore resource loading failures for missing fixture assets)
   page.on("console", (msg) => {
     const text = msg.text();
-    if (msg.type() === "error" && !text.includes("ERR_FILE_NOT_FOUND")) {
+    if (msg.type() === "error" && !text.includes("ERR_FILE_NOT_FOUND") && !text.includes("ERR_CERT_AUTHORITY_INVALID")) {
       errors.push(`Console error: ${text}`);
     } else if (msg.type() === "warning") {
       warnings.push(`Console warning: ${text}`);

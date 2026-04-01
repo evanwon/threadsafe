@@ -198,4 +198,22 @@ describe("generateHtml", () => {
     assert.ok(!html.includes("video-placeholder"));
     assert.ok(!html.includes("Open video"));
   });
+
+  it("renders img avatar when avatar path is provided", () => {
+    const postWithAvatar: GalleryPost = {
+      ...samplePost,
+      avatar: "assets/testuser-profile.jpg",
+    };
+    const html = generateHtml([postWithAvatar]);
+    assert.ok(html.includes('"avatar":"assets/testuser-profile.jpg"'));
+    assert.ok(html.includes("function renderAvatarHtml("));
+    assert.ok(html.includes("function avatarFallbackHtml("));
+  });
+
+  it("falls back to initial avatar when no avatar path", () => {
+    const html = generateHtml([samplePost]);
+    assert.ok(html.includes("function avatarFallbackHtml("));
+    // samplePost has no avatar field, so JSON should not contain avatar key
+    assert.ok(!html.includes('"avatar":"assets/'));
+  });
 });

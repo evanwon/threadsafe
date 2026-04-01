@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { authenticate } from "./auth.js";
 import { scrapeSavedPosts } from "./scraper.js";
 import { parseThreadsData } from "./parser.js";
-import { downloadImages } from "./downloader.js";
+import { downloadImages, downloadProfilePics } from "./downloader.js";
 import { generateMarkdownFiles } from "./markdown.js";
 import { loadState, saveState, addBackedUpPosts } from "./state.js";
 import { resolveConfig } from "./config.js";
@@ -51,8 +51,9 @@ async function main() {
       if (posts.length === 0) {
         console.log("No posts could be parsed from scraped data.");
       } else {
-        // Download images
+        // Download images and profile pictures
         const postsWithImages = await downloadImages(posts, OUTPUT_DIR);
+        await downloadProfilePics(posts, OUTPUT_DIR);
 
         // Generate markdown files
         const written = await generateMarkdownFiles(

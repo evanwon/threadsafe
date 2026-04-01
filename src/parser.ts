@@ -102,6 +102,9 @@ function parseItem(raw: unknown): PostData | null {
   const authorVerified = user
     ? Boolean(user.is_verified)
     : false;
+  const profilePicUrl = user
+    ? getString(user, "profile_pic_url")
+    : "";
 
   // Text content
   const caption = post.caption as Record<string, unknown> | undefined;
@@ -135,6 +138,7 @@ function parseItem(raw: unknown): PostData | null {
     id,
     author: author ? `@${author}` : "@unknown",
     authorVerified,
+    profilePicUrl,
     text,
     timestamp,
     url,
