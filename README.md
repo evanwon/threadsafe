@@ -12,6 +12,13 @@ The official Threads API does not expose saved/bookmarked posts. This tool uses 
 
 ```bash
 npm install
+```
+
+`npm install` automatically downloads the matching Chromium build via a `postinstall`
+hook. If you ever see a Playwright "Executable doesn't exist" error (e.g. after a
+Playwright version bump), re-sync the browser manually with:
+
+```bash
 npx playwright install chromium
 ```
 
@@ -46,6 +53,7 @@ Set the server port with the `PORT` environment variable.
 - **Search**: filter posts by text content
 - **Author filter**: dropdown listing all authors with post counts
 - **Sort**: newest, most liked, oldest
+- **Reply indicator**: reply posts show a "Replying to @author" banner
 
 ### Output directory
 

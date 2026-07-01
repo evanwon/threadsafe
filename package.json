@@ -4,6 +4,7 @@
   "description": "Back up saved Threads posts as Obsidian-compatible markdown",
   "type": "module",
   "scripts": {
+    "postinstall": "playwright install chromium",
     "start": "tsx src/index.ts",
     "test": "tsx --test tests/gallery.test.ts tests/parser.test.ts",
     "validate": "tsx tests/validate-render.ts",
