@@ -81,6 +81,43 @@ describe("parseBody", () => {
     assert.equal(result.media[0].poster, "assets/123-0.jpg");
   });
 
+  it("pairs adjacent video + image as video with poster", () => {
+    // The parser emits video-first when it falls through to recursive media
+    // search; without pairing this leaves an orphaned thumbnail below the video.
+    const body = `Post text
+
+[Video](https://cdn.threads.net/video.mp4)
+
+![](assets/123-1.jpg)
+
+---
+[View on Threads](https://threads.net)`;
+    const result = parseBody(body);
+    assert.equal(result.media.length, 1);
+    assert.equal(result.media[0].type, "video");
+    assert.equal(result.media[0].src, "https://cdn.threads.net/video.mp4");
+    assert.equal(result.media[0].poster, "assets/123-1.jpg");
+  });
+
+  it("does not steal a second image as a poster for an already-paired video", () => {
+    const body = `Post text
+
+![](assets/123-0.jpg)
+
+[Video](https://cdn.threads.net/video.mp4)
+
+![](assets/123-1.jpg)
+
+---
+[View on Threads](https://threads.net)`;
+    const result = parseBody(body);
+    assert.equal(result.media.length, 2);
+    assert.equal(result.media[0].type, "video");
+    assert.equal(result.media[0].poster, "assets/123-0.jpg");
+    assert.equal(result.media[1].type, "image");
+    assert.equal(result.media[1].src, "assets/123-1.jpg");
+  });
+
   it("handles video without preceding image", () => {
     const body = `Text
 
@@ -323,6 +360,35 @@ describe("generateHtml", () => {
     assert.ok(html.includes(".video-container"));
     assert.ok(html.includes(".play-overlay"));
     assert.ok(html.includes(".post-video"));
+  });
+
+  it("includes bounded media sizing CSS", () => {
+    const html = generateHtml([samplePost]);
+    assert.ok(html.includes(".media-single"));
+    assert.ok(html.includes(".media-carousel"));
+    assert.ok(html.includes(".media-track"));
+    // The cap on single media is the whole point of the layout — without a
+    // max-height images render at intrinsic size and run off the screen.
+    assert.ok(html.includes("max-height:min(70vh,640px)"));
+  });
+
+  it("includes carousel rendering and control logic", () => {
+    const html = generateHtml([samplePost]);
+    assert.ok(html.includes("function renderMediaItemHtml("));
+    assert.ok(html.includes("function carouselIndex("));
+    assert.ok(html.includes("function updateCarousel("));
+    assert.ok(html.includes("media-dots"));
+    assert.ok(html.includes("media-count"));
+  });
+
+  it("includes lightbox markup, styles and behavior", () => {
+    const html = generateHtml([samplePost]);
+    assert.ok(html.includes('id="lightbox"'));
+    assert.ok(html.includes('id="lightboxImg"'));
+    assert.ok(html.includes("function openLightbox("));
+    assert.ok(html.includes("function closeLightbox("));
+    assert.ok(html.includes("function lightboxStep("));
+    assert.ok(html.includes(".lightbox-img"));
   });
 
   it("does not contain old video-placeholder references", () => {

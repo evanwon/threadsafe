@@ -120,6 +120,36 @@ const FIXTURES: GalleryPost[] = [
     replyToAuthor: "@frank",
     media: [],
   },
+  {
+    id: "8",
+    author: "@heidi",
+    verified: false,
+    date: "2024-03-08T12:00:00.000Z",
+    url: "https://www.threads.net/post/8",
+    likes: 20,
+    replies: 2,
+    reposts: 1,
+    text: "Four images — carousel with dots",
+    media: Array.from({ length: 4 }, (_, i) => ({
+      type: "image" as const,
+      src: `assets/8-${i}.jpg`,
+    })),
+  },
+  {
+    id: "9",
+    author: "@ivan",
+    verified: false,
+    date: "2024-03-09T12:00:00.000Z",
+    url: "https://www.threads.net/post/9",
+    likes: 30,
+    replies: 0,
+    reposts: 0,
+    text: "Twelve images — carousel with a count chip instead of dots",
+    media: Array.from({ length: 12 }, (_, i) => ({
+      type: "image" as const,
+      src: `assets/9-${i}.jpg`,
+    })),
+  },
 ];
 
 async function validate(htmlPath?: string): Promise<void> {
@@ -183,6 +213,61 @@ async function validate(htmlPath?: string): Promise<void> {
   console.log(
     `Video containers (click-to-play): ${videoContainers}, Direct video elements: ${videoElements}`
   );
+
+  // Check: media wrappers render (single vs. carousel)
+  const singleMedia = await page.locator(".media-single").count();
+  const carousels = await page.locator(".media-carousel").count();
+  const tracks = await page.locator(".media-track").count();
+  console.log(`Single media: ${singleMedia}, Carousels: ${carousels}`);
+  if (!htmlPath) {
+    if (singleMedia === 0) errors.push("No .media-single wrappers rendered");
+    if (carousels === 0) errors.push("No .media-carousel wrappers rendered");
+    if (tracks !== carousels)
+      errors.push(`.media-track count (${tracks}) does not match .media-carousel count (${carousels})`);
+
+    // The 4-image post gets dots; the 12-image post gets a count chip.
+    const dotStrips = await page.locator(".media-dots").count();
+    const countChips = await page.locator(".media-count").count();
+    console.log(`Dot strips: ${dotStrips}, Count chips: ${countChips}`);
+    if (dotStrips === 0) errors.push("No .media-dots rendered for small carousel");
+    if (countChips === 0) errors.push("No .media-count rendered for large carousel");
+
+    const navButtons = await page.locator(".media-nav").count();
+    if (navButtons !== carousels * 2)
+      errors.push(`Expected ${carousels * 2} .media-nav buttons, found ${navButtons}`);
+  }
+
+  // Check: lightbox root exists and starts closed
+  const lightboxes = await page.locator("#lightbox").count();
+  if (lightboxes === 0) errors.push("Missing lightbox root (#lightbox)");
+  const lightboxOpen = await page.locator("#lightbox.open").count();
+  if (lightboxOpen > 0) errors.push("Lightbox is open on page load");
+
+  // Check: rendered media respects the height cap. Only meaningful against a
+  // real gallery — fixture asset paths point at files that do not exist, so
+  // nothing decodes and every box is zero-height.
+  if (htmlPath) {
+    const MAX_MEDIA_HEIGHT = 700;
+    const oversized = await page.evaluate((limit) => {
+      const out: { src: string; height: number }[] = [];
+      const imgs = Array.from(document.querySelectorAll("img.post-img"));
+      for (const el of imgs) {
+        const img = el as HTMLImageElement;
+        if (!img.complete || img.naturalWidth === 0) continue;
+        const h = img.getBoundingClientRect().height;
+        if (h > limit) out.push({ src: img.getAttribute("src") || "", height: Math.round(h) });
+      }
+      return out;
+    }, MAX_MEDIA_HEIGHT);
+    if (oversized.length > 0) {
+      errors.push(
+        `${oversized.length} image(s) exceed ${MAX_MEDIA_HEIGHT}px tall, e.g. ` +
+          oversized.slice(0, 3).map((o) => `${o.src} (${o.height}px)`).join(", ")
+      );
+    } else {
+      console.log(`Media height cap: all loaded images within ${MAX_MEDIA_HEIGHT}px`);
+    }
+  }
 
   // Check: no old-style video placeholders
   const oldPlaceholders = await page.locator(".video-placeholder").count();
