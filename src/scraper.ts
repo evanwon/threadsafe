@@ -5,7 +5,7 @@ import type { BrowserContext } from "playwright";
  * Threads embeds post data in deeply nested structures — both in initial
  * <script data-sjs> tags and in GraphQL API responses during scroll.
  */
-function findThreadItems(obj: unknown, results: unknown[] = []): unknown[] {
+export function findThreadItems(obj: unknown, results: unknown[] = []): unknown[] {
   if (obj === null || obj === undefined) return results;
 
   if (Array.isArray(obj)) {
@@ -25,6 +25,18 @@ function findThreadItems(obj: unknown, results: unknown[] = []): unknown[] {
       (record.post as Record<string, unknown>).pk
     ) {
       results.push(record);
+    }
+
+    // Single-post pages expose the post directly as `media`. Require `code` to
+    // skip id-only stubs, and wrap it so extractPostId still returns post.pk.
+    if (
+      record.media &&
+      typeof record.media === "object" &&
+      !Array.isArray(record.media) &&
+      (record.media as Record<string, unknown>).pk &&
+      (record.media as Record<string, unknown>).code
+    ) {
+      results.push({ post: record.media });
     }
 
     // Look for thread_items arrays
