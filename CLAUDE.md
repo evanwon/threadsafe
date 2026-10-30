@@ -4,6 +4,10 @@
 
 Threadsafe is a TypeScript CLI tool that backs up saved Threads posts as Obsidian-compatible markdown. Uses Playwright to automate a Chromium browser, scrolling through `threads.com/saved` and intercepting GraphQL API responses to extract post data.
 
+Browser automation is required: the official Threads API has no endpoint for saved posts (its read endpoints return only your own threads), and Meta's "Download Your Information" export leaves them out too. Expect any new feature that reads Threads data to hit the same wall.
+
+Auto-memory is off here; continuity lives on the GitHub issues, and the session-start brief (`.claude/hooks/session-brief.sh`) prints the recent ones.
+
 ## Tech Stack
 
 - TypeScript with ESNext/NodeNext module resolution

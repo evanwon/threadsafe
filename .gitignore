@@ -4,5 +4,5 @@ output/
 config.json
 session.json
 state.json
-.claude/
+.claude/settings.local.json
 .superpowers/
