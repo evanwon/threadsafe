@@ -57,6 +57,8 @@ After any change to gallery.ts or types.ts, run all three:
 
 The gallery embeds JavaScript inside a TypeScript template literal — this means JS syntax errors won't be caught by tsc. The render validation is the only way to catch those.
 
+On pull requests, `.github/workflows/test.yml` runs the type check and `npm test` (not the render check: it installs without scripts, so no browser). Dependabot PRs merge themselves daily once that passes (`.github/workflows/dependabot-automerge.yml`, whose header says when).
+
 When debugging gallery JS failures, don't guess — generate the HTML and inspect it:
 ```
 npx tsx -e "import { generateHtml } from './src/gallery.ts'; import { writeFileSync } from 'fs'; writeFileSync('/tmp/gallery-debug.html', generateHtml([])); console.log('Done');"
