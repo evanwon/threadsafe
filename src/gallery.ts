@@ -4,6 +4,15 @@ import { join } from "node:path";
 import type { GalleryPost, GalleryMediaItem, GalleryQuotedPost } from "./types.js";
 
 /**
+ * Reverse the escapes `yamlString` in markdown.ts writes inside a double-quoted
+ * value: `\\`, `\"` and `\n`. One pass, so the backslash an escaped `\\` produces
+ * is never read again as the start of another escape.
+ */
+function unescapeYamlString(value: string): string {
+  return value.replace(/\\(["\\n])/g, (_, ch: string) => (ch === "n" ? "\n" : ch));
+}
+
+/**
  * Parse YAML frontmatter from a markdown file.
  * Returns null if frontmatter is malformed.
  */
@@ -32,11 +41,7 @@ export function parseFrontmatter(
 
     // Strip surrounding double-quotes from YAML-quoted values
     if (value.startsWith('"') && value.endsWith('"')) {
-      value = value
-        .slice(1, -1)
-        .replace(/\\\\/g, "\\")
-        .replace(/\\"/g, '"')
-        .replace(/\\n/g, "\n");
+      value = unescapeYamlString(value.slice(1, -1));
     }
 
     meta[key] = value;
