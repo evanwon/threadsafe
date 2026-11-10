@@ -41,7 +41,7 @@ function buildFilename(post: PostData): string {
 /**
  * Escape YAML string values.
  */
-function yamlString(value: string): string {
+export function yamlString(value: string): string {
   if (
     value.includes(":") ||
     value.includes("#") ||

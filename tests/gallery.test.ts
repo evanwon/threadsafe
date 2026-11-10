@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseFrontmatter, parseBody, generateHtml } from "../src/gallery.js";
+import { yamlString } from "../src/markdown.js";
 import type { GalleryPost } from "../src/types.js";
 
 describe("parseFrontmatter", () => {
@@ -31,6 +32,33 @@ text`;
     assert.ok(result);
     assert.equal(result.meta.author, "@bob");
     assert.equal(result.meta.url, "https://threads.net/post/123");
+  });
+
+  it("unescapes quoted values in one pass, so an escaped backslash stays a backslash", () => {
+    // Frontmatter line: text: "C:\\new: line\nsays \"hi\" \\\""
+    const content = '---\ntext: "C:\\\\new: line\\nsays \\"hi\\" \\\\\\""\n---\n\nbody';
+    const result = parseFrontmatter(content);
+    assert.ok(result);
+    assert.equal(result.meta.text, 'C:\\new: line\nsays "hi" \\"');
+  });
+
+  it("round-trips values written by yamlString", () => {
+    const values = [
+      "plain: colon",
+      "@alice",
+      'say "hi"',
+      "two\nlines",
+      "C:\\new: path",
+      "literal \\n: not a newline",
+      'ends with backslash-quote: \\"',
+      "double \\\\ backslash: here",
+      "trailing backslash: \\",
+    ];
+    for (const value of values) {
+      const result = parseFrontmatter(`---\nk: ${yamlString(value)}\n---\n\nbody`);
+      assert.ok(result);
+      assert.equal(result.meta.k, value);
+    }
   });
 
   it("returns null for malformed content", () => {
